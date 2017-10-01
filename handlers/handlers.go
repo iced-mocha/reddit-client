@@ -40,7 +40,6 @@ func (api *CoreHandler) requestOauth() ([]byte, error) {
 		log.Fatalf("unable to reach reddit", err)
 	}
 
-	//	req.Header.Set("Access-Control-Allow-Origin", "*")
 	req.Header.Set("User-Agent", userAgent)
 
 	q := req.URL.Query()
@@ -87,10 +86,8 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Reached callback")
 	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("User-Agent", userAgent)
 	w.Header().Set("Content-Type", "application/json")
-	r.Header.Set("Access-Control-Allow-Origin", "*")
 	r.Header.Set("User-Agent", userAgent)
 	r.Header.Set("Content-Type", "application/json")
 
@@ -121,9 +118,8 @@ func (api *CoreHandler) requestCode(code string) {
 	var jsonStr = []byte("grant_type=authorization_code&code=" + code + "&redirect_uri=http://localhost:3000/v1/authorize_callback")
 
 	req, err := http.NewRequest("POST", accessTokenURL, bytes.NewBuffer(jsonStr))
-	req.Header.Set("Access-Control-Allow-Origin", "*")
 	req.Header.Set("User-Agent", userAgent)
-	//req.SetBasicAuth("2fRgcQCHkIAqkw", "wF2eLhE3M4jjiXM4JIe2Nfj0y5o")
+	req.SetBasicAuth("2fRgcQCHkIAqkw", "wF2eLhE3M4jjiXM4JIe2Nfj0y5o")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -141,10 +137,8 @@ func (api *CoreHandler) requestCode(code string) {
 // Endpoint for Requesting an oauth token from reddit
 func (api *CoreHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("User-Agent", userAgent)
 	w.Header().Set("Content-Type", "text/html")
-	r.Header.Set("Access-Control-Allow-Origin", "*")
 	r.Header.Set("User-Agent", userAgent)
 	r.Header.Set("Content-Type", "application/json")
 
