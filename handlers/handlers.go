@@ -6,32 +6,46 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
+)
+
+const (
+	accessTokenURL = "https://www.reddit.com/api/v1/access_token"
+	authorizeURL   = "https://www.reddit.com/api/v1/authorize"
+	userAgent      = "web:icedmocha:v0.0.1 (by /u/icedmoch)"
 )
 
 type CoreHandler struct{}
 
+func addRedditKeys(vals url.Values) url.Values {
+	vals.Add("client_id", "2fRgcQCHkIAqkw")
+	vals.Add("response_type", "code")
+	// This string should be random
+	vals.Add("state", "test")
+	// This must match the uri registered on reddit
+	vals.Add("redirect_uri", "http://localhost:3000/v1/authorize_callback")
+	vals.Add("duration", "permanent")
+	vals.Add("scope", "history identity mysubreddits read")
+
+	return vals
+}
+
+// Helper function for fetching auth token fro reddit
 func (api *CoreHandler) requestOauth() ([]byte, error) {
 
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", "https://www.reddit.com/api/v1/authorize", nil)
+	req, err := http.NewRequest("GET", authorizeURL, nil)
 	if err != nil {
 		log.Fatalf("unable to reach reddit", err)
 	}
 
-	req.Header.Set("Access-Control-Allow-Origin", "*")
-	req.Header.Set("User-Agent", "web:icedmocha:v0.0.1 (by /u/icedmoch)")
+	//	req.Header.Set("Access-Control-Allow-Origin", "*")
+	req.Header.Set("User-Agent", userAgent)
 
 	q := req.URL.Query()
-	q.Add("client_id", "2fRgcQCHkIAqkw")
-	q.Add("response_type", "code")
-	// This string should be random
-	q.Add("state", "test")
-	// This must match the uri registered on reddit
-	q.Add("redirect_uri", "http://localhost:3000/v1/authorize_callback")
-	q.Add("duration", "permanent")
-	q.Add("scope", "history identity mysubreddits read")
-	req.URL.RawQuery = q.Encode()
+	// Add our reddit specific keys to our URL
+	req.URL.RawQuery = addRedditKeys(q).Encode()
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -50,7 +64,7 @@ func (api *CoreHandler) requestOauth() ([]byte, error) {
 func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("User-Agent", "web:icedmocha:v0.0.1 (by /u/icedmoch)")
+	w.Header().Set("User-Agent", userAgent)
 
 	client := &http.Client{}
 
@@ -74,10 +88,10 @@ func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request
 	log.Printf("Reached callback")
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("User-Agent", "web:icedmocha:v0.0.1 (by /u/icedmoch)")
+	w.Header().Set("User-Agent", userAgent)
 	w.Header().Set("Content-Type", "application/json")
 	r.Header.Set("Access-Control-Allow-Origin", "*")
-	r.Header.Set("User-Agent", "web:icedmocha:v0.0.1 (by /u/icedmoch)")
+	r.Header.Set("User-Agent", userAgent)
 	r.Header.Set("Content-Type", "application/json")
 
 	// Get the query string
@@ -104,15 +118,12 @@ func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request
 }
 
 func (api *CoreHandler) requestCode(code string) {
-	url := "https://www.reddit.com/api/v1/access_token"
-
 	var jsonStr = []byte("grant_type=authorization_code&code=" + code + "&redirect_uri=http://localhost:3000/v1/authorize_callback")
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-	req.SetBasicAuth("2fRgcQCHkIAqkw", "wF2eLhE3M4jjiXM4JIe2Nfj0y5o")
-
+	req, err := http.NewRequest("POST", accessTokenURL, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Access-Control-Allow-Origin", "*")
-	req.Header.Set("User-Agent", "web:icedmocha:v0.0.1 (by /u/icedmoch)")
+	req.Header.Set("User-Agent", userAgent)
+	//req.SetBasicAuth("2fRgcQCHkIAqkw", "wF2eLhE3M4jjiXM4JIe2Nfj0y5o")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -127,14 +138,14 @@ func (api *CoreHandler) requestCode(code string) {
 	fmt.Println("response Body:", string(body))
 }
 
-// Requests an oauth token from reddit
+// Endpoint for Requesting an oauth token from reddit
 func (api *CoreHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("User-Agent", "web:icedmocha:v0.0.1 (by /u/icedmoch)")
+	w.Header().Set("User-Agent", userAgent)
 	w.Header().Set("Content-Type", "text/html")
 	r.Header.Set("Access-Control-Allow-Origin", "*")
-	r.Header.Set("User-Agent", "web:icedmocha:v0.0.1 (by /u/icedmoch)")
+	r.Header.Set("User-Agent", userAgent)
 	r.Header.Set("Content-Type", "application/json")
 
 	// The contents of this call will be a webpage asking for users authentication

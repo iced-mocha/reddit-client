@@ -1,7 +1,6 @@
 package main
 
 import (
-	ghandlers "github.com/gorilla/handlers"
 	"github.com/icedmocha/reddit/handlers"
 	"github.com/icedmocha/reddit/server"
 	"log"
@@ -16,5 +15,9 @@ func main() {
 		log.Fatal("error initializing server: ", err)
 	}
 
-	log.Fatal(http.ListenAndServe(":3000", ghandlers.CORS()(s.Router)))
+	/*	log.Fatal(http.ListenAndServe(":3000", ghandlers.CORS(
+		ghandlers.AllowedMethods([]string{"GET", "POST"}),
+		ghandlers.AllowedOrigins([]string{"*"}),
+		ghandlers.AllowedHeaders([]string{"X-Requested-With"}))(s.Router)))*/
+	log.Fatal(http.ListenAndServe(":3000", s.Router))
 }
