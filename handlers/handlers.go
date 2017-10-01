@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -82,10 +83,48 @@ func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request
 	// Get the query string
 	vals := r.URL.Query()
 
-	fmt.Printf("Error if any: %v", vals["error"])
+	// If "error" is not an empty string we have not received
+	// our bearer token
+
+	if vals["error"][0] != "" {
+		log.Printf("Did not receive authorization")
+		// For now return
+		return
+	}
+
+	// We need to verify that this state matches what we sent
 	fmt.Printf("State: %v", vals["state"])
 
+	// Otherwise we have no errors so lets take our bear token and
+	// get our auth token
+
+	api.requestCode(vals["code"][0])
+
 	w.Write([]byte("{hello: \"test\"}"))
+}
+
+func (api *CoreHandler) requestCode(code string) {
+	url := "https://www.reddit.com/api/v1/access_token"
+
+	var jsonStr = []byte("grant_type=authorization_code&code=" + code + "&redirect_uri=http://localhost:3000/v1/authorize_callback")
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	req.SetBasicAuth("2fRgcQCHkIAqkw", "wF2eLhE3M4jjiXM4JIe2Nfj0y5o")
+
+	req.Header.Set("Access-Control-Allow-Origin", "*")
+	req.Header.Set("User-Agent", "web:icedmocha:v0.0.1 (by /u/icedmoch)")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("response Status:", resp.Status)
+	fmt.Println("response Headers:", resp.Header)
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println("response Body:", string(body))
 }
 
 // Requests an oauth token from reddit
