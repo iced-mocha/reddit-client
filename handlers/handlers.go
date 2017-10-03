@@ -97,7 +97,7 @@ func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request
 	// If "error" is not an empty string we have not received
 	// our bearer token
 
-	if vals["error"][0] != "" {
+	if len(vals["error"]) != 0 {
 		log.Printf("Did not receive authorization")
 		// For now return
 		return
@@ -106,10 +106,12 @@ func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request
 	// We need to verify that this state matches what we sent
 	fmt.Printf("State: %v", vals["state"])
 
+	// We need to verify that this state matches what we sent
+	fmt.Printf("Code: %v", vals["code"])
 	// Otherwise we have no errors so lets take our bear token and
 	// get our auth token
 
-	api.requestCode(vals["code"][0])
+	//api.requestCode(vals["code"][0])
 
 	w.Write([]byte("{hello: \"test\"}"))
 }
@@ -119,7 +121,7 @@ func (api *CoreHandler) requestCode(code string) {
 
 	req, err := http.NewRequest("POST", accessTokenURL, bytes.NewBuffer(jsonStr))
 	req.Header.Set("User-Agent", userAgent)
-	req.SetBasicAuth("2fRgcQCHkIAqkw", "wF2eLhE3M4jjiXM4JIe2Nfj0y5o")
+	req.SetBasicAuth("2fRgcQCHkIAqkw", "SECRET")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -136,14 +138,17 @@ func (api *CoreHandler) requestCode(code string) {
 
 // Endpoint for Requesting an oauth token from reddit
 func (api *CoreHandler) Authorize(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("User-Agent", userAgent)
-	w.Header().Set("Content-Type", "text/html")
-	r.Header.Set("User-Agent", userAgent)
-	r.Header.Set("Content-Type", "application/json")
+	URL, _ := url.Parse("https://www.reddit.com/api/v1/authorize")
 
-	// The contents of this call will be a webpage asking for users authentication
-	contents, _ := api.requestOauth()
+	q := URL.Query()
 
-	w.Write(contents)
+	q.Add("client_id", "2fRgcQCHkIAqkw")
+	q.Add("response_type", "code")
+	q.Add("state", "test")
+	q.Add("redirect_uri", "http://localhost:3000/v1/authorize_callback")
+	q.Add("duration", "permanent")
+	q.Add("scope", "history identity mysubreddits read")
+	URL.RawQuery = q.Encode()
+
+	http.Redirect(w, r, URL.String(), 301)
 }
