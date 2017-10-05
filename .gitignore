@@ -4,3 +4,4 @@ Gopkg.lock
 *.swp
 SECRET.txt
 reddit
+workspace.env
