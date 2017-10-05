@@ -7,8 +7,11 @@ import (
 	"net/http"
 )
 
-func main() {
+type Configuration struct {
+	RedditSecret string `json:"reddit-secret"`
+}
 
+func main() {
 	handler := &handlers.CoreHandler{}
 	s, err := server.New(handler)
 	if err != nil {

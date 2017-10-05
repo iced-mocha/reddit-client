@@ -3,3 +3,5 @@ Gopkg.lock
 .DS_STORE
 *.swp
 SECRET.txt
+reddit
+workspace.env

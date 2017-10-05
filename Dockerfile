@@ -5,6 +5,8 @@ RUN go get -u github.com/golang/dep/cmd/dep && go install github.com/golang/dep/
 WORKDIR /go/src/github.com/icedmocha/reddit
 COPY . /go/src/github.com/icedmocha/reddit
 
+ENV REDDIT_SECRET test
+
 RUN dep ensure && go install
 
 ENTRYPOINT ["reddit"]
