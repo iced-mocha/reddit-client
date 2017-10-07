@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/icedmocha/reddit/handlers"
-	"github.com/icedmocha/reddit/server"
+	"github.com/iced-mocha/reddit/handlers"
+	"github.com/iced-mocha/reddit/server"
 	"log"
 	"net/http"
 )
@@ -18,5 +18,5 @@ func main() {
 		log.Fatal("error initializing server: ", err)
 	}
 
-	log.Fatal(http.ListenAndServe(":3000", s.Router))
+	log.Fatal(http.ListenAndServe(":3001", s.Router))
 }

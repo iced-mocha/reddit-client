@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	redirectURI         = "http://localhost:3000/v1/authorize_callback"
+	redirectURI         = "http://localhost:3001/v1/authorize_callback"
 	redditBaseURL       = "https://www.reddit.com"
 	accessTokenEndpoint = "/api/v1/access_token"
 	authorizeEndpoint   = "/api/v1/authorize"
@@ -109,8 +109,6 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 // We get redirected back here after attemp to retrieve an oauth code from Reddit
 func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Reached callback")
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("User-Agent", userAgent)
 
 	// Get the query string
 	vals := r.URL.Query()
@@ -131,7 +129,7 @@ func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request
 	// Now request code
 	api.requestToken(vals["code"][0])
 
-	w.Write([]byte("{hello: \"test\"}"))
+	http.Redirect(w, r, "http://localhost:8080", http.StatusMovedPermanently)
 }
 
 // Requests the bearer token from reddit using the given code
