@@ -2,7 +2,7 @@ package server
 
 import (
 	"github.com/gorilla/mux"
-	"github.com/iced-mocha/reddit/handlers"
+	"github.com/iced-mocha/reddit-client/handlers"
 )
 
 type Server struct {

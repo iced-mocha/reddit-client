@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/iced-mocha/reddit/handlers"
-	"github.com/iced-mocha/reddit/server"
+	"github.com/iced-mocha/reddit-client/handlers"
+	"github.com/iced-mocha/reddit-client/server"
 	"log"
 	"net/http"
 )

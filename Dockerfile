@@ -2,11 +2,13 @@ FROM golang:1.9
 
 RUN go get -u github.com/golang/dep/cmd/dep && go install github.com/golang/dep/cmd/dep
 
-WORKDIR /go/src/github.com/icedmocha/reddit
-COPY . /go/src/github.com/icedmocha/reddit
+WORKDIR /go/src/github.com/icedmocha/reddit-client
+COPY . /go/src/github.com/icedmocha/reddit-client
 
 ENV REDDIT_SECRET test
 
-RUN dep ensure && go install
+RUN dep ensure -v 
+RUN go install -v
+RUN source workspace.env
 
-ENTRYPOINT ["reddit"]
+ENTRYPOINT ["reddit-client"]
