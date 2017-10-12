@@ -9,10 +9,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+
+	"github.com/gorilla/mux"
 )
 
 const (
 	frontEndURL         = "http://localhost:8080"
+	coreURL             = "http://localhost:3000"
 	redirectURI         = "http://localhost:3001/v1/authorize_callback"
 	redditBaseURL       = "https://www.reddit.com"
 	accessTokenEndpoint = "/api/v1/access_token"
@@ -43,49 +46,18 @@ func init() {
 }
 
 // Consumes an existing values and adds keys that are required for reddit oauth
-func (api *CoreHandler) addRedditKeys(vals url.Values) url.Values {
+func (api *CoreHandler) addRedditKeys(vals url.Values, userID string) url.Values {
 	// These values are mandated by reddit oauth docs
 	vals.Add("client_id", os.Getenv(redditClientIDKey))
 	vals.Add("response_type", "code")
 	// TODO: This state value should be randomly generated each time
-	vals.Add("state", "test")
+	vals.Add("state", userID)
 	// This must match the uri registered on reddit
 	vals.Add("redirect_uri", redirectURI)
 	vals.Add("duration", "permanent")
 	vals.Add("scope", "history identity mysubreddits read")
 
 	return vals
-}
-
-// Helper function for fetching auth token fro reddit
-func (api *CoreHandler) requestOauth() ([]byte, error) {
-	log.Println("Preparing to request for oauth token from reddit")
-
-	req, err := http.NewRequest(http.MethodGet, redditBaseURL+authorizeEndpoint, nil)
-	if err != nil {
-		log.Println("Errored when creating request")
-	}
-
-	req.Header.Set("User-Agent", userAgent)
-	q := req.URL.Query()
-
-	// Add our reddit specific keys to our URL
-	req.URL.RawQuery = api.addRedditKeys(q).Encode()
-
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Println("Errored when sending request to the server")
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-	contents, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Println("Error occured when reading response body")
-		return nil, err
-	}
-
-	return contents, nil
 }
 
 // Fetches post from Reddit
@@ -141,12 +113,12 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
-func (api *CoreHandler) postBearerToken(bearerToken string) {
+func (api *CoreHandler) postBearerToken(bearerToken, userID string) {
 	// Post the bearer token to be saved in core
 	// TODO: Where is the UserID passed?
-	jsonStr := []byte(fmt.Sprintf("{ \"bearertoken\": \"%v\"", bearerToken))
+	jsonStr := []byte(fmt.Sprintf("{ \"bearertoken\": \"%v\"}", bearerToken))
 
-	req, err := http.NewRequest(http.MethodPost, redditBaseURL+accessTokenEndpoint, bytes.NewBuffer(jsonStr))
+	req, err := http.NewRequest(http.MethodPost, coreURL+"/v1/users/"+userID+"/authorize/reddit", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		log.Printf("Unable to post bearer token: %v\n", err)
 	}
@@ -168,7 +140,7 @@ func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request
 	// If "error" is not an empty string we have not received our access code
 	if val, ok := vals["error"]; ok {
 		if len(val) != 0 {
-			log.Printf("Did not receive authorization. Error: %v\n", vals["errpr"][0])
+			log.Printf("Did not receive authorization. Error: %v\n", vals["error"][0])
 			return
 		}
 	}
@@ -189,8 +161,8 @@ func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// Post code back to core async as the rest is not dependant on this
-	go api.postBearerToken(bearerToken)
+	// Post code back to core async as the rest is not dependant on this -- vals["state"] should be userID
+	go api.postBearerToken(bearerToken, vals["state"][0])
 
 	// Redirect to frontend
 	http.Redirect(w, r, frontEndURL, http.StatusMovedPermanently)
@@ -232,7 +204,7 @@ func (api *CoreHandler) requestToken(code string) (string, error) {
 }
 
 // This function initiates a request from Reddit to authorize via oauth
-// GET /v1/authorize
+// GET /v1/{userID}/authorize
 func (api *CoreHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 	URL, err := url.Parse(redditBaseURL + authorizeEndpoint)
 	if err != nil {
@@ -240,8 +212,11 @@ func (api *CoreHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the userID from the path
+	vars := mux.Vars(r)
+
 	// Add the keys required for requesting oauth from Reddit
-	URL.RawQuery = api.addRedditKeys(URL.Query()).Encode()
+	URL.RawQuery = api.addRedditKeys(URL.Query(), vars["userID"]).Encode()
 
 	// Redirect to reddit to request oauth
 	http.Redirect(w, r, URL.String(), http.StatusFound)
