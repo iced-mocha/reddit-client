@@ -137,6 +137,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	// Make a JSON array
 	for i, val := range vals.Data.Children {
 		// Marshall each individual post
+		val.Data.Platform = models.PlatformReddit
 		t, err := json.Marshal(val.Data)
 		if err != nil {
 			continue
@@ -149,8 +150,6 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonArray = append(jsonArray, []byte("]")...)
-
-	log.Printf("Response from Reddit: %v\n", string(jsonArray))
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(jsonArray)
