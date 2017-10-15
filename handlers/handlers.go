@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+	"github.com/iced-mocha/shared/models"
 )
 
 const (
@@ -37,6 +38,15 @@ type AuthResponse struct {
 	ExpiresIn    int    `json:"expires_in"`
 	Scope        string `json:"scope"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+type RedditResponse struct {
+	Kind string `json:"kind"`
+	Data struct {
+		Children []struct {
+			Data models.Post
+		}
+	}
 }
 
 var client *http.Client
@@ -82,6 +92,8 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("Successfully unmarshalled body of GET request\n")
+
 	// Make a request to get posts from Reddit
 	req, err := http.NewRequest(http.MethodGet, "http://oauth.reddit.com/r/hockey/hot", nil)
 	if err != nil {
@@ -100,6 +112,8 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("Received response from Reddit with status code: %v\n", resp.StatusCode)
+
 	// Make sure we close the body
 	defer resp.Body.Close()
 	body, err = ioutil.ReadAll(resp.Body)
@@ -109,8 +123,37 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// We need to get rid of some the meta data that comes with the response
+	vals := RedditResponse{}
+	err = json.Unmarshal(body, &vals)
+	if err != nil {
+		log.Printf("Unable to unmarshall response: %v\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	jsonArray := []byte("[")
+
+	// Make a JSON array
+	for i, val := range vals.Data.Children {
+		// Marshall each individual post
+		t, err := json.Marshal(val.Data)
+		if err != nil {
+			continue
+		}
+
+		if i > 0 {
+			jsonArray = append(jsonArray, []byte(", ")...)
+		}
+		jsonArray = append(jsonArray, t...)
+	}
+
+	jsonArray = append(jsonArray, []byte("]")...)
+
+	log.Printf("Response from Reddit: %v\n", string(jsonArray))
+
 	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	w.Write(jsonArray)
 }
 
 func (api *CoreHandler) postBearerToken(bearerToken, userID string) {
