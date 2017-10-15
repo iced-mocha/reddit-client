@@ -7,8 +7,6 @@ COPY . /go/src/github.com/icedmocha/reddit-client
 
 ENV REDDIT_SECRET test
 
-RUN dep ensure -v 
-RUN go install -v
-RUN source workspace.env
+RUN dep ensure -v && go install -v && /bin/bash -c "source workspace.env"
 
 ENTRYPOINT ["reddit-client"]
