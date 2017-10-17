@@ -16,7 +16,7 @@ import (
 
 const (
 	frontEndURL         = "http://localhost:8080"
-	coreURL             = "http://localhost:3000"
+	coreURL             = "http://core:3000"
 	redirectURI         = "http://localhost:3001/v1/authorize_callback"
 	redditBaseURL       = "https://www.reddit.com"
 	accessTokenEndpoint = "/api/v1/access_token"
