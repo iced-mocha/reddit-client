@@ -1,1 +1,3 @@
 Iced Mocha
+
+To use this insert a valid reddit client id into `workspace.env` then run `source workspace.env && go install && ${GOPATH}/go/bin/reddit-client` 
