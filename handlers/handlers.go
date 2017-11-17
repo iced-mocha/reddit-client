@@ -3,20 +3,23 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/iced-mocha/shared/models"
 )
 
 const (
+	// TODO: All of these urls need to be configurable
 	frontEndURL         = "http://localhost:8080"
-	coreURL             = "http://core:3000"
+	coreURL             = "http://localhost:3000"
 	redirectURI         = "http://localhost:3001/v1/authorize_callback"
 	redditBaseURL       = "https://www.reddit.com"
 	accessTokenEndpoint = "/api/v1/access_token"
@@ -38,6 +41,10 @@ type AuthResponse struct {
 	ExpiresIn    int    `json:"expires_in"`
 	Scope        string `json:"scope"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+type IdentityResponse struct {
+	RedditUsername string `json:"name"`
 }
 
 type RedditResponse struct {
@@ -70,39 +77,83 @@ func (api *CoreHandler) addRedditKeys(vals url.Values, userID string) url.Values
 	return vals
 }
 
-// Fetches post from Reddit
-// /v1/{id}/posts
-func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
-	// Parse body and get bearer token from the request
-	defer r.Body.Close()
-	body, err := ioutil.ReadAll(r.Body)
+func (api *CoreHandler) GetIdentity(bearerToken string) (string, error) {
+	// Make a request to get posts from Reddit
+	req, err := http.NewRequest(http.MethodGet, "http://oauth.reddit.com/api/v1/me", nil)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return "", err
 	}
 
-	log.Printf("Body of GetPosts request%v\n", string(body))
+	// Attach our bearer token
+	req.Header.Add("Authorization", "bearer "+bearerToken)
+	// This is required by the Reddit API terms and conditions
+	req.Header.Add("User-Agent", userAgent)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Errored when retrieving identity from Reddit: %v", err)
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Unable to read response body from Reddit: %v", err)
+		return "", err
+	}
+
+	id := IdentityResponse{}
+	err = json.Unmarshal(body, &id)
+	if err != nil {
+		log.Printf("Unable to unmarshall response: %v\n", err)
+		return "", err
+	}
+
+	log.Printf("Received identity for user: %v", id.RedditUsername)
+	return id.RedditUsername, nil
+}
+
+// TODO: Put in this in request url
+func (api *CoreHandler) getBearerToken(r *http.Request) (string, error) {
+	// Parse body and get bearer token from the request
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return "", err
+	}
 
 	// Unmarshall response containing our bearer token
 	authRequest := &AuthRequest{}
 	err = json.Unmarshal(body, authRequest)
 	if err != nil {
-		log.Printf("Unable to parse response body: %v\n", err)
+		return "", nil
+	}
+
+	if authRequest.BearerToken == "" {
+		return "", errors.New("received empty bearer token in request")
+	}
+
+	return authRequest.BearerToken, nil
+}
+
+// Fetches post from Reddit
+// /v1/{id}/posts
+func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
+	bearerToken, err := api.getBearerToken(r)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Successfully unmarshalled body of GET request\n")
-
 	// Make a request to get posts from Reddit
-	req, err := http.NewRequest(http.MethodGet, "http://oauth.reddit.com/r/hockey/hot", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://oauth.reddit.com/r/all", nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Attach our bearer token
-	req.Header.Add("Authorization", "bearer "+authRequest.BearerToken)
+	req.Header.Add("Authorization", "bearer "+bearerToken)
+	// This is required by the Reddit API terms and conditions
 	req.Header.Add("User-Agent", userAgent)
 
 	resp, err := client.Do(req)
@@ -111,12 +162,11 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("Received response from Reddit with status code: %v\n", resp.StatusCode)
-
-	// Make sure we close the body
 	defer resp.Body.Close()
-	body, err = ioutil.ReadAll(resp.Body)
+
+	log.Printf("Received response from Reddit with status code: %v while getting posts", resp.StatusCode)
+
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Unable to complete request: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -138,6 +188,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	for i, val := range vals.Data.Children {
 		// Marshall each individual post
 		val.Data.Platform = models.PlatformReddit
+		val.Data.Date = time.Unix(int64(val.Data.Created), 0)
 		t, err := json.Marshal(val.Data)
 		if err != nil {
 			continue
@@ -157,18 +208,31 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 
 func (api *CoreHandler) postBearerToken(bearerToken, userID string) {
 	// Post the bearer token to be saved in core
-	// TODO: Where is the UserID passed?
-	jsonStr := []byte(fmt.Sprintf("{ \"bearertoken\": \"%v\"}", bearerToken))
+	log.Printf("Preparing to store reddit account in core for user: %v", userID)
+	redditUsername, err := api.GetIdentity(bearerToken)
+	if err != nil {
+		log.Printf("%v", err)
+		return
+	}
 
+	jsonStr := []byte(fmt.Sprintf(`{ "username": "%v", "bearer-token": "%v"}`, redditUsername, bearerToken))
 	req, err := http.NewRequest(http.MethodPost, coreURL+"/v1/users/"+userID+"/authorize/reddit", bytes.NewBuffer(jsonStr))
 	if err != nil {
-		log.Printf("Unable to post bearer token: %v\n", err)
+		log.Printf("Unable to post bearer token for user: %v - %v", userID, err)
+		return
 	}
 
 	// TODO: add retry logic
-	_, err = client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Unable to complete request: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Could not post reddit data to core: %v", err)
+		return
 	}
 }
 
