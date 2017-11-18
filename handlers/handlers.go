@@ -29,7 +29,9 @@ const (
 	redditClientIDKey   = "REDDIT_CLIENT_ID"
 )
 
-type CoreHandler struct{}
+type CoreHandler struct {
+	Client *http.Client
+}
 
 type AuthRequest struct {
 	BearerToken string
@@ -54,12 +56,6 @@ type RedditResponse struct {
 			Data models.Post
 		}
 	}
-}
-
-var client *http.Client
-
-func init() {
-	client = &http.Client{}
 }
 
 // Consumes an existing values and adds keys that are required for reddit oauth
@@ -89,7 +85,7 @@ func (api *CoreHandler) GetIdentity(bearerToken string) (string, error) {
 	// This is required by the Reddit API terms and conditions
 	req.Header.Add("User-Agent", userAgent)
 
-	resp, err := client.Do(req)
+	resp, err := api.Client.Do(req)
 	if err != nil {
 		log.Printf("Errored when retrieving identity from Reddit: %v", err)
 		return "", err
@@ -156,7 +152,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	// This is required by the Reddit API terms and conditions
 	req.Header.Add("User-Agent", userAgent)
 
-	resp, err := client.Do(req)
+	resp, err := api.Client.Do(req)
 	if err != nil {
 		log.Printf("Errored when sending request to the server: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -223,7 +219,7 @@ func (api *CoreHandler) postBearerToken(bearerToken, userID string) {
 	}
 
 	// TODO: add retry logic
-	resp, err := client.Do(req)
+	resp, err := api.Client.Do(req)
 	if err != nil {
 		log.Printf("Unable to complete request: %v\n", err)
 		return
@@ -285,7 +281,7 @@ func (api *CoreHandler) requestToken(code string) (string, error) {
 	req.Header.Set("User-Agent", userAgent)
 	req.SetBasicAuth(os.Getenv(redditClientIDKey), os.Getenv(redditSecretKey))
 
-	resp, err := client.Do(req)
+	resp, err := api.Client.Do(req)
 	if err != nil {
 		log.Printf("Unable to complate request for bearer token: %v\n", err)
 		return "", err

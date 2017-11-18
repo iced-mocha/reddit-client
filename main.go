@@ -12,7 +12,7 @@ type Configuration struct {
 }
 
 func main() {
-	handler := &handlers.CoreHandler{}
+	handler := &handlers.CoreHandler{Client: &http.Client{}}
 	s, err := server.New(handler)
 	if err != nil {
 		log.Fatal("error initializing server: ", err)
