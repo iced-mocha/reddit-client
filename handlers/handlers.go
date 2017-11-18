@@ -9,38 +9,35 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/iced-mocha/reddit-client/config"
 	"github.com/iced-mocha/shared/models"
 )
 
 const (
-	// TODO: All of these urls need to be configurable
-	frontEndURL         = "http://localhost:8080"
-	coreURL             = "http://localhost:3000"
-	redirectURI         = "http://localhost:3001/v1/authorize_callback"
 	redditBaseURL       = "https://www.reddit.com"
 	accessTokenEndpoint = "/api/v1/access_token"
 	authorizeEndpoint   = "/api/v1/authorize"
+	identityEndpoint    = "/api/v1/me"
 	userAgent           = "web:icedmocha:v0.0.1 (by /u/icedmoch)"
-	redditSecretKey     = "REDDIT_SECRET"
-	redditClientIDKey   = "REDDIT_CLIENT_ID"
 
 	// This words give us access to specific things in Reddit API - see docs for more info
 	redditAPIScope = "history identity mysubreddits read"
 )
 
 type CoreHandler struct {
-	Client *http.Client
+	client *http.Client
+	conf   *config.Config
 }
 
 type AuthRequest struct {
 	BearerToken string
 }
 
-type AuthResponse struct {
+// Struct for the response from reddit when request a bearer token
+type RedditAuthResponse struct {
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
@@ -48,6 +45,7 @@ type AuthResponse struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// Struct for the response from reddit when GETting the /api/v1/me endpoint
 type IdentityResponse struct {
 	RedditUsername string `json:"name"`
 }
@@ -61,15 +59,25 @@ type RedditResponse struct {
 	}
 }
 
+func New(conf *config.Config) (*CoreHandler, error) {
+	if conf == nil {
+		return nil, errors.New("must initialize handler with non-nil config")
+	}
+
+	h := &CoreHandler{client: &http.Client{}}
+	h.conf = conf
+	return h, nil
+}
+
 // Consumes an existing values object and adds keys that are required for reddit oauth
 func (api *CoreHandler) addRedditKeys(vals url.Values, userID string) url.Values {
 	// These values are mandated by reddit oauth docs
-	vals.Add("client_id", os.Getenv(redditClientIDKey))
+	vals.Add("client_id", api.conf.RedditClientID)
 	vals.Add("response_type", "code")
 	// TODO: This state value should be randomly generated each time - for now we are setting it as the users userID - not sure which is better
 	vals.Add("state", userID)
 	// This must match the uri registered on reddit
-	vals.Add("redirect_uri", redirectURI)
+	vals.Add("redirect_uri", api.conf.RedirectURI)
 	vals.Add("duration", "permanent")
 	vals.Add("scope", redditAPIScope)
 
@@ -77,8 +85,8 @@ func (api *CoreHandler) addRedditKeys(vals url.Values, userID string) url.Values
 }
 
 func (api *CoreHandler) GetIdentity(bearerToken string) (string, error) {
-	// Make a request to get posts from Reddit
-	req, err := http.NewRequest(http.MethodGet, "http://oauth.reddit.com/api/v1/me", nil)
+	// Make a request to get identity from Reddit
+	req, err := http.NewRequest(http.MethodGet, api.conf.RedditOAuthURL+identityEndpoint, nil)
 	if err != nil {
 		return "", err
 	}
@@ -88,12 +96,16 @@ func (api *CoreHandler) GetIdentity(bearerToken string) (string, error) {
 	// This is required by the Reddit API terms and conditions
 	req.Header.Add("User-Agent", userAgent)
 
-	resp, err := api.Client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		log.Printf("Errored when retrieving identity from Reddit: %v", err)
 		return "", err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Did not receive 200 OK when trying to get identity from reddit. Received: %v", resp.StatusCode)
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -108,11 +120,12 @@ func (api *CoreHandler) GetIdentity(bearerToken string) (string, error) {
 		return "", err
 	}
 
-	log.Printf("Received identity for user: %v", id.RedditUsername)
+	log.Printf("Received identity for user: %v.", id.RedditUsername)
 	return id.RedditUsername, nil
 }
 
-// TODO: Put in this in request url
+// TODO: Store bearer token in url
+// Consumes a request object and parse the bearer token contained in the body
 func (api *CoreHandler) getBearerToken(r *http.Request) (string, error) {
 	// Parse body and get bearer token from the request
 	body, err := ioutil.ReadAll(r.Body)
@@ -135,7 +148,7 @@ func (api *CoreHandler) getBearerToken(r *http.Request) (string, error) {
 }
 
 // Fetches post from Reddit
-// /v1/{id}/posts
+// GET /v1/{id}/posts
 func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	bearerToken, err := api.getBearerToken(r)
 	if err != nil {
@@ -155,7 +168,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	// This is required by the Reddit API terms and conditions
 	req.Header.Add("User-Agent", userAgent)
 
-	resp, err := api.Client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		log.Printf("Errored when sending request to the server: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -201,10 +214,10 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 
 	jsonArray = append(jsonArray, []byte("]")...)
 
-	w.WriteHeader(http.StatusOK)
 	w.Write(jsonArray)
 }
 
+// Posts Reddit Username and bearer token to be stored in core
 func (api *CoreHandler) postBearerToken(bearerToken, userID string) {
 	// Post the bearer token to be saved in core
 	log.Printf("Preparing to store reddit account in core for user: %v", userID)
@@ -215,14 +228,14 @@ func (api *CoreHandler) postBearerToken(bearerToken, userID string) {
 	}
 
 	jsonStr := []byte(fmt.Sprintf(`{ "username": "%v", "bearer-token": "%v"}`, redditUsername, bearerToken))
-	req, err := http.NewRequest(http.MethodPost, coreURL+"/v1/users/"+userID+"/authorize/reddit", bytes.NewBuffer(jsonStr))
+	req, err := http.NewRequest(http.MethodPost, api.conf.CoreURL+"/v1/users/"+userID+"/authorize/reddit", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		log.Printf("Unable to post bearer token for user: %v - %v", userID, err)
 		return
 	}
 
 	// TODO: add retry logic
-	resp, err := api.Client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		log.Printf("Unable to complete request: %v\n", err)
 		return
@@ -231,11 +244,10 @@ func (api *CoreHandler) postBearerToken(bearerToken, userID string) {
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("Could not post reddit data to core: %v", err)
-		return
 	}
 }
 
-// We get redirected back here after attemp to retrieve an oauth code from Reddit
+// We get redirected back here after attempt to retrieve an oauth code from Reddit
 func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request) {
 	log.Println("Reaceived callback from Reddit oauth")
 
@@ -243,6 +255,7 @@ func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request
 	vals := r.URL.Query()
 
 	// If "error" is not an empty string we have not received our access code
+	// This is error param is specified by the Reddit API
 	if val, ok := vals["error"]; ok {
 		if len(val) != 0 {
 			log.Printf("Did not receive authorization. Error: %v\n", vals["error"][0])
@@ -270,27 +283,27 @@ func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request
 	go api.postBearerToken(bearerToken, vals["state"][0])
 
 	// Redirect to frontend
-	http.Redirect(w, r, frontEndURL, http.StatusMovedPermanently)
+	http.Redirect(w, r, api.conf.FrontendURL, http.StatusMovedPermanently)
 }
 
 // Helper function to request a bearer token from reddit using the given code
-// Returns the bearer token and an error should one occur
+// Returns: the bearer token and an error should one occur
 func (api *CoreHandler) requestToken(code string) (string, error) {
 	log.Printf("About to request bearer token for code: %v\n", code)
-	jsonStr := []byte("grant_type=authorization_code&code=" + code + "&redirect_uri=" + redirectURI)
+	jsonStr := []byte("grant_type=authorization_code&code=" + code + "&redirect_uri=" + api.conf.RedirectURI)
 
-	// Prepare the request for the token
+	// Prepare the request for the bearer token
 	req, err := http.NewRequest(http.MethodPost, redditBaseURL+accessTokenEndpoint, bytes.NewBuffer(jsonStr))
 	req.Header.Set("User-Agent", userAgent)
-	req.SetBasicAuth(os.Getenv(redditClientIDKey), os.Getenv(redditSecretKey))
+	req.SetBasicAuth(api.conf.RedditClientID, api.conf.RedditSecret)
 
-	resp, err := api.Client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		log.Printf("Unable to complate request for bearer token: %v\n", err)
 		return "", err
 	}
-
 	defer resp.Body.Close()
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Unable to read response body: %v\n", err)
@@ -298,7 +311,7 @@ func (api *CoreHandler) requestToken(code string) (string, error) {
 	}
 
 	// Unmarshall response containing our bearer token
-	authResponse := &AuthResponse{}
+	authResponse := &RedditAuthResponse{}
 	err = json.Unmarshal(body, authResponse)
 	if err != nil {
 		log.Printf("Unable to parse response from reddit: %v\n", err)

@@ -13,6 +13,7 @@ type Config struct {
 	RedirectURI    string `yaml:"redirect-uri"`
 	RedditSecret   string `yaml:"reddit-secret"`
 	RedditClientID string `yaml:"reddit-client-id"`
+	RedditOAuthURL string `yaml:"reddit-oauth-url"`
 }
 
 // TODO: Add validation to avoid empty values

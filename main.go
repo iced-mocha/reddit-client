@@ -1,10 +1,12 @@
 package main
 
 import (
-	"github.com/iced-mocha/reddit-client/handlers"
-	"github.com/iced-mocha/reddit-client/server"
 	"log"
 	"net/http"
+
+	"github.com/iced-mocha/reddit-client/config"
+	"github.com/iced-mocha/reddit-client/handlers"
+	"github.com/iced-mocha/reddit-client/server"
 )
 
 type Configuration struct {
@@ -12,10 +14,19 @@ type Configuration struct {
 }
 
 func main() {
-	handler := &handlers.CoreHandler{Client: &http.Client{}}
+	conf, err := config.New("config.yml")
+	if err != nil {
+		log.Fatalf("Unable to create config object: %v", err)
+	}
+
+	handler, err := handlers.New(conf)
+	if err != nil {
+		log.Fatalf("Unable to create handler: %v", err)
+	}
+
 	s, err := server.New(handler)
 	if err != nil {
-		log.Fatal("error initializing server: ", err)
+		log.Fatalf("error initializing server: %v", err)
 	}
 
 	log.Fatal(http.ListenAndServe(":3001", s.Router))
