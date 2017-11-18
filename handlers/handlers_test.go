@@ -42,6 +42,7 @@ func (suite *HandlersTestSuite) SetupSuite() {
 }
 
 func (s *HandlersTestSuite) TestGetIdentity() {
+	// Should be able to get the username given a bearer token
 	username, err := s.handler.GetIdentity("bearer")
 	s.Nil(err)
 	s.Equal("test", username)
@@ -71,7 +72,7 @@ func (s *HandlersTestSuite) TestAddRedditKeys() {
 	s.Contains(newVals, "duration")
 	s.Contains(newVals, "scope")
 	// TODO: cant testthe value of this yet since its pulled from env var -once its moved to config file we can
-	//	s.Equal(newVals["client_id"])
+	s.Equal(newVals["client_id"][0], s.handler.conf.RedditClientID)
 	s.Equal(newVals["response_type"][0], "code")
 	s.Equal(newVals["state"][0], "test")
 	s.Equal(newVals["redirect_uri"][0], s.handler.conf.RedirectURI)
