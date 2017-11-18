@@ -1,0 +1,5 @@
+frontend-url: "http://localhost:8080"
+core-url: "http://localhost:3000"
+redirect-uri: "http://localhost:3001/v1/authorize_callback"
+reddit-secret: "PUT REDDIT SECRET HERE"
+reddit-client-id: "2fRgcQCHkIAqkw"

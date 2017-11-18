@@ -5,3 +5,4 @@ Gopkg.lock
 SECRET.txt
 reddit
 workspace.env
+config.yml
