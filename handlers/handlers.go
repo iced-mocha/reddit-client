@@ -27,6 +27,9 @@ const (
 	userAgent           = "web:icedmocha:v0.0.1 (by /u/icedmoch)"
 	redditSecretKey     = "REDDIT_SECRET"
 	redditClientIDKey   = "REDDIT_CLIENT_ID"
+
+	// This words give us access to specific things in Reddit API - see docs for more info
+	redditAPIScope = "history identity mysubreddits read"
 )
 
 type CoreHandler struct {
@@ -58,17 +61,17 @@ type RedditResponse struct {
 	}
 }
 
-// Consumes an existing values and adds keys that are required for reddit oauth
+// Consumes an existing values object and adds keys that are required for reddit oauth
 func (api *CoreHandler) addRedditKeys(vals url.Values, userID string) url.Values {
 	// These values are mandated by reddit oauth docs
 	vals.Add("client_id", os.Getenv(redditClientIDKey))
 	vals.Add("response_type", "code")
-	// TODO: This state value should be randomly generated each time
+	// TODO: This state value should be randomly generated each time - for now we are setting it as the users userID - not sure which is better
 	vals.Add("state", userID)
 	// This must match the uri registered on reddit
 	vals.Add("redirect_uri", redirectURI)
 	vals.Add("duration", "permanent")
-	vals.Add("scope", "history identity mysubreddits read")
+	vals.Add("scope", redditAPIScope)
 
 	return vals
 }
