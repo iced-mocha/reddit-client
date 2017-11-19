@@ -228,7 +228,7 @@ func (api *CoreHandler) postBearerToken(bearerToken, userID string) {
 		return
 	}
 
-	jsonStr := []byte(fmt.Sprintf(`{ "username": "%v", "bearer-token": "%v"}`, redditUsername, bearerToken))
+	jsonStr := []byte(fmt.Sprintf(`{ "type": "reddit", "username": "%v", "token": "%v"}`, redditUsername, bearerToken))
 	req, err := http.NewRequest(http.MethodPost, api.conf.CoreURL+"/v1/users/"+userID+"/authorize/reddit", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		log.Printf("Unable to post bearer token for user: %v - %v", userID, err)
