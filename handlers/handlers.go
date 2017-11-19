@@ -21,6 +21,7 @@ const (
 	accessTokenEndpoint = "/api/v1/access_token"
 	authorizeEndpoint   = "/api/v1/authorize"
 	identityEndpoint    = "/api/v1/me"
+	settingsEndpoint    = "/settings"
 	userAgent           = "web:icedmocha:v0.0.1 (by /u/icedmoch)"
 
 	// This words give us access to specific things in Reddit API - see docs for more info
@@ -283,7 +284,7 @@ func (api *CoreHandler) AuthorizeCallback(w http.ResponseWriter, r *http.Request
 	go api.postBearerToken(bearerToken, vals["state"][0])
 
 	// Redirect to frontend
-	http.Redirect(w, r, api.conf.FrontendURL, http.StatusMovedPermanently)
+	http.Redirect(w, r, api.conf.FrontendURL+settingsEndpoint, http.StatusMovedPermanently)
 }
 
 // Helper function to request a bearer token from reddit using the given code
