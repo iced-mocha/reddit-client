@@ -51,12 +51,22 @@ type IdentityResponse struct {
 	RedditUsername string `json:"name"`
 }
 
+type ImageSource struct {
+	URL string `json:"url"`
+	Width int `json:"width"`
+	Height int `json:"height"`
+}
+
 type RedditImage struct {
-	Source struct {
-		URL    string `json:"url"`
-		Width  int    `json:"width"`
-		Height int    `json:"height"`
-	} `json:"source"`
+	Source *ImageSource `json:"source"`
+	Variants struct {
+		GIF struct {
+			Source *ImageSource `json:"source"`
+		} `json:"gif"`
+		MP4 struct {
+			Source *ImageSource `json:"source"`
+		} `json:"mp4"`
+	} `json:"variants"`
 }
 
 type RedditPost struct {
@@ -69,7 +79,6 @@ type RedditPost struct {
 	Subreddit    string `json:"subreddit_name_prefixed"`
 	Preview      struct {
 		Images []RedditImage `json:"images"`
-		Gif    *RedditImage  `json:"gif"`
 	} `json:"preview"`
 	Score    int     `json:"score"`
 	UnixTime float64 `json:"created_utc"`
@@ -224,11 +233,17 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		post := c.Data
 
 		var heroImg string
-		if post.Preview.Gif != nil {
-			heroImg = post.Preview.Gif.Source.URL
-		} else if len(post.Preview.Images) >= 1 {
-			// TODO: Pick best image instead of first one
-			heroImg = post.Preview.Images[0].Source.URL
+		var video string
+		if len(post.Preview.Images) > 0 {
+			img := post.Preview.Images[0]
+			if img.Variants.GIF.Source != nil {
+				heroImg = img.Variants.GIF.Source.URL
+			} else if img.Source != nil {
+				heroImg = img.Source.URL
+			}
+			if img.Variants.MP4.Source != nil {
+				video = img.Variants.MP4.Source.URL
+			}
 		}
 
 		generic := models.Post{
@@ -237,6 +252,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 			Author:   post.Author,
 			Title:    post.Title,
 			HeroImg:  heroImg,
+			Video:    video,
 			PostLink: "https://reddit.com" + post.RelativePath,
 			Platform: "reddit",
 			URL:      post.URL,
