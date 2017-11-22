@@ -60,17 +60,19 @@ type RedditImage struct {
 }
 
 type RedditPost struct {
-	ID           string        `json:"id"`
-	Author       string        `json:"author"`
-	URL          string        `json:"url"`
-	Title        string        `json:"title"`
-	RelativePath string        `json:"permalink"`
-	PostLink     string        `json:"url"`
-	Subreddit    string        `json:"subreddit_name_prefixed"`
-	Images       []RedditImage `json:"images"`
-	Gif          RedditImage   `json:"gif"`
-	Score        int           `json:"score"`
-	UnixTime     float64       `json:"created_utc"`
+	ID           string `json:"id"`
+	Author       string `json:"author"`
+	URL          string `json:"url"`
+	Title        string `json:"title"`
+	RelativePath string `json:"permalink"`
+	PostLink     string `json:"url"`
+	Subreddit    string `json:"subreddit_name_prefixed"`
+	Preview      struct {
+		Images []RedditImage `json:"images"`
+		Gif    *RedditImage  `json:"gif"`
+	} `json:"preview"`
+	Score    int     `json:"score"`
+	UnixTime float64 `json:"created_utc"`
 }
 
 type RedditResponse struct {
@@ -222,11 +224,11 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		post := c.Data
 
 		var heroImg string
-		if post.Gif.Source.URL != "" {
-			heroImg = post.Gif.Source.URL
-		} else if len(post.Images) >= 1 {
+		if post.Preview.Gif != nil {
+			heroImg = post.Preview.Gif.Source.URL
+		} else if len(post.Preview.Images) >= 1 {
 			// TODO: Pick best image instead of first one
-			heroImg = post.Images[0].Source.URL
+			heroImg = post.Preview.Images[0].Source.URL
 		}
 
 		generic := models.Post{
