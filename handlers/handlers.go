@@ -51,11 +51,33 @@ type IdentityResponse struct {
 	RedditUsername string `json:"name"`
 }
 
+type RedditImage struct {
+	Source struct {
+		URL    string `json:"url"`
+		Width  int    `json:"width"`
+		Height int    `json:"height"`
+	} `json:"source"`
+}
+
+type RedditPost struct {
+	ID           string        `json:"id"`
+	Author       string        `json:"author"`
+	URL          string        `json:"url"`
+	Title        string        `json:"title"`
+	RelativePath string        `json:"permalink"`
+	PostLink     string        `json:"url"`
+	Subreddit    string        `json:"subreddit_name_prefixed"`
+	Images       []RedditImage `json:"images"`
+	Gif          RedditImage   `json:"gif"`
+	Score        int           `json:"score"`
+	UnixTime     float64       `json:"created_utc"`
+}
+
 type RedditResponse struct {
 	Kind string `json:"kind"`
 	Data struct {
 		Children []struct {
-			Data models.Post
+			Data RedditPost
 		}
 	}
 }
@@ -195,27 +217,40 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonArray := []byte("[")
+	posts := []models.Post{}
+	for _, c := range vals.Data.Children {
+		post := c.Data
 
-	// Make a JSON array
-	for i, val := range vals.Data.Children {
-		// Marshall each individual post
-		val.Data.Platform = models.PlatformReddit
-		val.Data.Date = time.Unix(int64(val.Data.Created), 0)
-		t, err := json.Marshal(val.Data)
-		if err != nil {
-			continue
+		var heroImg string
+		if post.Gif.Source.URL != "" {
+			heroImg = post.Gif.Source.URL
+		} else if len(post.Images) >= 1 {
+			// TODO: Pick best image instead of first one
+			heroImg = post.Images[0].Source.URL
 		}
 
-		if i > 0 {
-			jsonArray = append(jsonArray, []byte(", ")...)
+		generic := models.Post{
+			ID:       post.ID,
+			Date:     time.Unix(int64(post.UnixTime), 10),
+			Author:   post.Author,
+			Title:    post.Title,
+			HeroImg:  heroImg,
+			PostLink: "https://reddit.com" + post.RelativePath,
+			Platform: "reddit",
+			URL:      post.URL,
 		}
-		jsonArray = append(jsonArray, t...)
+
+		posts = append(posts, generic)
 	}
 
-	jsonArray = append(jsonArray, []byte("]")...)
+	res, err := json.Marshal(posts)
+	if err != nil {
+		log.Printf("Unable to marshall response: %v\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	w.Write(jsonArray)
+	w.Write(res)
 }
 
 // Posts Reddit Username and bearer token to be stored in core
