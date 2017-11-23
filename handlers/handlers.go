@@ -202,7 +202,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Make a request to get posts from Reddit
-	url := "http://oauth.reddit.com/r/all"
+	url := "http://oauth.reddit.com/"
 	if pageToken != "" {
 		url += "?after=" + pageToken
 	}
