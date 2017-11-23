@@ -174,11 +174,7 @@ func (api *CoreHandler) getBearerToken(r *http.Request) (string, error) {
 	authRequest := &AuthRequest{}
 	err = json.Unmarshal(body, authRequest)
 	if err != nil {
-		return "", nil
-	}
-
-	if authRequest.BearerToken == "" {
-		return "", errors.New("received empty bearer token in request")
+		return "", err
 	}
 
 	return authRequest.BearerToken, nil
@@ -202,18 +198,26 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Make a request to get posts from Reddit
-	url := "http://oauth.reddit.com/"
+	var url string
+	if bearerToken == "" {
+		url = "http://www.reddit.com/.json"
+	} else {
+		url = "http://oauth.reddit.com/"
+	}
 	if pageToken != "" {
 		url += "?after=" + pageToken
 	}
+
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Attach our bearer token
-	req.Header.Add("Authorization", "bearer "+bearerToken)
+	if bearerToken != "" {
+		// Attach our bearer token
+		req.Header.Add("Authorization", "bearer "+bearerToken)
+	}
 	// This is required by the Reddit API terms and conditions
 	req.Header.Add("User-Agent", userAgent)
 
@@ -278,7 +282,13 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 
 	var nextURL string
 	if vals.Data.After != "" {
-		nextURL = fmt.Sprintf("%v/v1/%v/posts?continue=%v", baseURL, id, vals.Data.After)
+		// TODO: This is needed because we use this same code for both authenitcated
+		// and non authenticated requests. It is gross and should be fixed soon
+		if id == "" {
+			nextURL = fmt.Sprintf("%v/v1/posts?continue=%v", baseURL, vals.Data.After)
+		} else {
+			nextURL = fmt.Sprintf("%v/v1/%v/posts?continue=%v", baseURL, id, vals.Data.After)
+		}
 	}
 	clientResp := models.ClientResp {
 		Posts: posts,
@@ -293,6 +303,11 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(res)
+}
+
+func (api *CoreHandler) GetPostsNoAuth(w http.ResponseWriter, r *http.Request) {
+	// TODO: This is gross, fix it. Make generic function to handle reddit posts, call it from GetPosts and GetPostsNoAuth
+	api.GetPosts(w, r)
 }
 
 // Posts Reddit Username and bearer token to be stored in core
