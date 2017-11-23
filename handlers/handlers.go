@@ -17,6 +17,8 @@ import (
 )
 
 const (
+	port                = ":3001"
+	baseURL             = "http://reddit-client" + port
 	redditBaseURL       = "https://www.reddit.com"
 	accessTokenEndpoint = "/api/v1/access_token"
 	authorizeEndpoint   = "/api/v1/authorize"
@@ -52,13 +54,13 @@ type IdentityResponse struct {
 }
 
 type ImageSource struct {
-	URL string `json:"url"`
-	Width int `json:"width"`
-	Height int `json:"height"`
+	URL    string `json:"url"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
 }
 
 type RedditImage struct {
-	Source *ImageSource `json:"source"`
+	Source   *ImageSource `json:"source"`
 	Variants struct {
 		GIF struct {
 			Source *ImageSource `json:"source"`
@@ -88,9 +90,10 @@ type RedditResponse struct {
 	Kind string `json:"kind"`
 	Data struct {
 		Children []struct {
-			Data RedditPost
-		}
-	}
+			Data RedditPost `json:"data"`
+		} `json:"children"`
+		After string `json:"after"`
+	} `json:"data"`
 }
 
 func New(conf *config.Config) (*CoreHandler, error) {
@@ -184,6 +187,14 @@ func (api *CoreHandler) getBearerToken(r *http.Request) (string, error) {
 // Fetches post from Reddit
 // GET /v1/{id}/posts
 func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query()
+	var pageToken string
+	if arr, ok := queryParams["continue"]; ok && len(arr) > 0 {
+		pageToken = arr[0]
+	}
+
+	id := mux.Vars(r)["id"]
+
 	bearerToken, err := api.getBearerToken(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -191,7 +202,11 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Make a request to get posts from Reddit
-	req, err := http.NewRequest(http.MethodGet, "http://oauth.reddit.com/r/all", nil)
+	url := "http://oauth.reddit.com/r/all"
+	if pageToken != "" {
+		url += "?after=" + pageToken
+	}
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -261,7 +276,16 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		posts = append(posts, generic)
 	}
 
-	res, err := json.Marshal(posts)
+	var nextURL string
+	if vals.Data.After != "" {
+		nextURL = fmt.Sprintf("%v/v1/%v/posts?continue=%v", baseURL, id, vals.Data.After)
+	}
+	clientResp := models.ClientResp {
+		Posts: posts,
+		NextURL: nextURL,
+	}
+
+	res, err := json.Marshal(clientResp)
 	if err != nil {
 		log.Printf("Unable to marshall response: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
