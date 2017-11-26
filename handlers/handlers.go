@@ -65,9 +65,6 @@ type RedditImage struct {
 		GIF struct {
 			Source *ImageSource `json:"source"`
 		} `json:"gif"`
-		MP4 struct {
-			Source *ImageSource `json:"source"`
-		} `json:"mp4"`
 	} `json:"variants"`
 }
 
@@ -259,9 +256,6 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 				heroImg = img.Variants.GIF.Source.URL
 			} else if img.Source != nil {
 				heroImg = img.Source.URL
-			}
-			if img.Variants.MP4.Source != nil {
-				video = img.Variants.MP4.Source.URL
 			}
 		}
 
