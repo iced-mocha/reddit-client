@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/net/html"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -27,7 +28,8 @@ const (
 	userAgent           = "web:icedmocha:v0.0.1 (by /u/icedmoch)"
 
 	// This words give us access to specific things in Reddit API - see docs for more info
-	redditAPIScope = "history identity mysubreddits read"
+	redditAPIScope   = "history identity mysubreddits read"
+	targetImageWidth = 600
 )
 
 type CoreHandler struct {
@@ -63,9 +65,11 @@ type RedditImage struct {
 	Source   *ImageSource `json:"source"`
 	Variants struct {
 		GIF struct {
-			Source *ImageSource `json:"source"`
+			Source      *ImageSource   `json:"source"`
+			Resolutions []*ImageSource `json:"resolutions"`
 		} `json:"gif"`
 	} `json:"variants"`
+	Resolutions []*ImageSource `json:"resolutions"`
 }
 
 type RedditPost struct {
@@ -176,6 +180,31 @@ func (api *CoreHandler) getBearerToken(r *http.Request) (string, error) {
 	return authRequest.BearerToken, nil
 }
 
+func getBestImage(image RedditImage) string {
+	gif := image.Variants.GIF
+	bestImage := getBestResolution(append(gif.Resolutions, gif.Source))
+	if bestImage == "" {
+		bestImage = getBestResolution(append(image.Resolutions, image.Source))
+	}
+	return html.UnescapeString(bestImage)
+}
+
+func getBestResolution(images []*ImageSource) string {
+	var bestImage string
+	var bestImageWidth int
+	for _, i := range images {
+		if i == nil {
+			continue
+		} else if i.Width > targetImageWidth && i.Width < bestImageWidth ||
+			bestImageWidth < targetImageWidth && i.Width > bestImageWidth {
+
+			bestImage = i.URL
+			bestImageWidth = i.Width
+		}
+	}
+	return bestImage
+}
+
 // Fetches post from Reddit
 // GET /v1/{id}/posts
 func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
@@ -245,12 +274,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 
 		var heroImg string
 		if len(post.Preview.Images) > 0 {
-			img := post.Preview.Images[0]
-			if img.Variants.GIF.Source != nil {
-				heroImg = img.Variants.GIF.Source.URL
-			} else if img.Source != nil {
-				heroImg = img.Source.URL
-			}
+			heroImg = getBestImage(post.Preview.Images[0])
 		}
 
 		generic := models.Post{
