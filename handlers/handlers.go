@@ -74,8 +74,7 @@ type RedditPost struct {
 	URL          string `json:"url"`
 	Title        string `json:"title"`
 	RelativePath string `json:"permalink"`
-	PostLink     string `json:"url"`
-	Subreddit    string `json:"subreddit_name_prefixed"`
+	Subreddit    string `json:"subreddit"`
 	Preview      struct {
 		Images []RedditImage `json:"images"`
 	} `json:"preview"`
@@ -189,10 +188,6 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 
 	bearerToken, err := api.getBearerToken(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 
 	// Make a request to get posts from Reddit
 	var url string
@@ -249,7 +244,6 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		post := c.Data
 
 		var heroImg string
-		var video string
 		if len(post.Preview.Images) > 0 {
 			img := post.Preview.Images[0]
 			if img.Variants.GIF.Source != nil {
@@ -260,15 +254,15 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		}
 
 		generic := models.Post{
-			ID:       post.ID,
-			Date:     time.Unix(int64(post.UnixTime), 10),
-			Author:   post.Author,
-			Title:    post.Title,
-			HeroImg:  heroImg,
-			Video:    video,
-			PostLink: "https://reddit.com" + post.RelativePath,
-			Platform: "reddit",
-			URL:      post.URL,
+			ID:        post.ID,
+			Date:      time.Unix(int64(post.UnixTime), 10),
+			Author:    post.Author,
+			Title:     post.Title,
+			HeroImg:   heroImg,
+			PostLink:  "https://reddit.com" + post.RelativePath,
+			Platform:  "reddit",
+			URL:       post.URL,
+			Subreddit: post.Subreddit,
 		}
 
 		posts = append(posts, generic)
@@ -284,8 +278,8 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 			nextURL = fmt.Sprintf("%v/v1/%v/posts?continue=%v", baseURL, id, vals.Data.After)
 		}
 	}
-	clientResp := models.ClientResp {
-		Posts: posts,
+	clientResp := models.ClientResp{
+		Posts:   posts,
 		NextURL: nextURL,
 	}
 
