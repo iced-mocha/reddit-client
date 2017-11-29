@@ -68,6 +68,10 @@ type RedditImage struct {
 			Source      *ImageSource   `json:"source"`
 			Resolutions []*ImageSource `json:"resolutions"`
 		} `json:"gif"`
+		MP4 struct {
+			Source      *ImageSource   `json:"source"`
+			Resolutions []*ImageSource `json:"resolutions"`
+		} `json:"mp4"`
 	} `json:"variants"`
 	Resolutions []*ImageSource `json:"resolutions"`
 }
@@ -189,6 +193,12 @@ func getBestImage(image RedditImage) string {
 	return html.UnescapeString(bestImage)
 }
 
+func getBestVideo(image RedditImage) string {
+	mp4 := image.Variants.MP4
+	bestVideo := getBestResolution(append(mp4.Resolutions, mp4.Source))
+	return html.UnescapeString(bestVideo)
+}
+
 func getBestResolution(images []*ImageSource) string {
 	var bestImage string
 	var bestImageWidth int
@@ -273,8 +283,11 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		post := c.Data
 
 		var heroImg string
+		var video string
 		if len(post.Preview.Images) > 0 {
-			heroImg = getBestImage(post.Preview.Images[0])
+			mainImage := post.Preview.Images[0]
+			heroImg = getBestImage(mainImage)
+			video = getBestVideo(mainImage)
 		}
 
 		generic := models.Post{
@@ -283,6 +296,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 			Author:    post.Author,
 			Title:     post.Title,
 			HeroImg:   heroImg,
+			Video:     video,
 			PostLink:  "https://reddit.com" + post.RelativePath,
 			Platform:  "reddit",
 			URL:       post.URL,
