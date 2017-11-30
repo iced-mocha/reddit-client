@@ -88,6 +88,7 @@ type RedditPost struct {
 	} `json:"preview"`
 	Score    int     `json:"score"`
 	UnixTime float64 `json:"created_utc"`
+	IsVideo  bool    `json:"is_video"`
 }
 
 type RedditResponse struct {
@@ -297,6 +298,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 			Title:     post.Title,
 			HeroImg:   heroImg,
 			Video:     video,
+			IsVideo:   post.IsVideo,
 			PostLink:  "https://reddit.com" + post.RelativePath,
 			Platform:  "reddit",
 			URL:       post.URL,
