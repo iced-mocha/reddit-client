@@ -89,6 +89,7 @@ type RedditPost struct {
 	Score    int     `json:"score"`
 	UnixTime float64 `json:"created_utc"`
 	IsVideo  bool    `json:"is_video"`
+	Content  string  `json:"selftext_html"`
 }
 
 type RedditResponse struct {
@@ -216,6 +217,16 @@ func getBestResolution(images []*ImageSource) string {
 	return bestImage
 }
 
+func getContentHTML(content string) string {
+	prefixLen := len("&lt;!-- SC_OFF --&gt;")
+	suffixLen := len("&lt;!-- SC_ON --&gt;")
+	if len(content) < prefixLen {
+		return ""
+	}
+	innerContent := content[prefixLen:len(content) - suffixLen]
+	return html.UnescapeString(innerContent)
+}
+
 // Fetches post from Reddit
 // GET /v1/{id}/posts
 func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
@@ -303,6 +314,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 			Platform:  "reddit",
 			URL:       post.URL,
 			Subreddit: post.Subreddit,
+			Content:   getContentHTML(post.Content),
 		}
 
 		posts = append(posts, generic)
