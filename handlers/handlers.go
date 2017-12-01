@@ -306,7 +306,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 			ID:        post.ID,
 			Date:      time.Unix(int64(post.UnixTime), 10),
 			Author:    post.Author,
-			Title:     post.Title,
+			Title:     html.UnescapeString(post.Title),
 			HeroImg:   heroImg,
 			Video:     video,
 			IsVideo:   post.IsVideo,
