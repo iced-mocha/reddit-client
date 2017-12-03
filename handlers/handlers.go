@@ -223,7 +223,7 @@ func getContentHTML(content string) string {
 	if len(content) < prefixLen {
 		return ""
 	}
-	innerContent := content[prefixLen:len(content) - suffixLen]
+	innerContent := content[prefixLen : len(content)-suffixLen]
 	return html.UnescapeString(innerContent)
 }
 
@@ -313,6 +313,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 			PostLink:  "https://reddit.com" + post.RelativePath,
 			Platform:  "reddit",
 			URL:       post.URL,
+			Score:     post.Score,
 			Subreddit: post.Subreddit,
 			Content:   getContentHTML(post.Content),
 		}
