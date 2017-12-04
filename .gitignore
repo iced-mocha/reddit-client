@@ -6,3 +6,5 @@ SECRET.txt
 reddit
 workspace.env
 config.yml
+server.key
+server.crt

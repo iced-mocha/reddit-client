@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/iced-mocha/reddit-client/config"
 	"github.com/iced-mocha/reddit-client/handlers"
@@ -12,6 +13,16 @@ import (
 type Configuration struct {
 	RedditSecret string `json:"reddit-secret"`
 }
+
+func checkExists(filename string) bool {
+	_, err := os.Stat(filename)
+	return !os.IsNotExist(err)
+}
+
+const (
+	certFile = "server.crt"
+	keyFile  = "server.key"
+)
 
 func main() {
 	conf, err := config.New("config.yml")
@@ -29,5 +40,12 @@ func main() {
 		log.Fatalf("error initializing server: %v", err)
 	}
 
-	log.Fatal(http.ListenAndServe(":3001", s.Router))
+	if !checkExists(certFile) || !checkExists(keyFile) {
+		// Make the server available via http
+		log.Fatalf("Could not detect both crt and key file quiting...")
+	} else {
+		// Cert and Key files found so use https
+		log.Println("server.crt and server.key file detected starting server using https")
+		http.ListenAndServeTLS(":3001", certFile, keyFile, s.Router)
+	}
 }
