@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -40,12 +43,21 @@ func main() {
 		log.Fatalf("error initializing server: %v", err)
 	}
 
-	if !checkExists(certFile) || !checkExists(keyFile) {
-		// Make the server available via http
-		log.Fatalf("Could not detect both crt and key file quiting...")
-	} else {
-		// Cert and Key files found so use https
-		log.Println("server.crt and server.key file detected starting server using https")
-		http.ListenAndServeTLS(":3001", certFile, keyFile, s.Router)
+	// Make any one who needs to make requests to use has their cert here
+	caCert, err := ioutil.ReadFile("/etc/ssl/certs/core.crt")
+	if err != nil {
+		log.Fatal(err)
 	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+	cfg := &tls.Config{
+		ClientAuth: tls.RequireAndVerifyClientCert,
+		ClientCAs:  caCertPool,
+	}
+	srv := &http.Server{
+		Addr:      ":3001",
+		Handler:   s.Router,
+		TLSConfig: cfg,
+	}
+	log.Fatal(srv.ListenAndServeTLS("/etc/ssl/certs/reddit.crt", "/etc/ssl/private/reddit.key"))
 }
