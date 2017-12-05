@@ -2,8 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"crypto/x509"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -43,21 +41,10 @@ func main() {
 		log.Fatalf("error initializing server: %v", err)
 	}
 
-	// Make any one who needs to make requests to use has their cert here
-	caCert, err := ioutil.ReadFile("/etc/ssl/certs/core.crt")
-	if err != nil {
-		log.Fatal(err)
-	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-	cfg := &tls.Config{
-		ClientAuth: tls.RequireAndVerifyClientCert,
-		ClientCAs:  caCertPool,
-	}
 	srv := &http.Server{
 		Addr:      ":3001",
 		Handler:   s.Router,
-		TLSConfig: cfg,
+		TLSConfig: &tls.Config{},
 	}
 	log.Fatal(srv.ListenAndServeTLS("/etc/ssl/certs/reddit.crt", "/etc/ssl/private/reddit.key"))
 }

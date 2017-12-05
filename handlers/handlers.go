@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -107,7 +109,22 @@ func New(conf *config.Config) (*CoreHandler, error) {
 		return nil, errors.New("must initialize handler with non-nil config")
 	}
 
-	h := &CoreHandler{client: &http.Client{}}
+	caCert, err := ioutil.ReadFile("/etc/ssl/certs/core.crt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: caCertPool,
+			},
+		},
+	}
+
+	h := &CoreHandler{client: client}
 	h.conf = conf
 	return h, nil
 }
@@ -139,7 +156,7 @@ func (api *CoreHandler) GetIdentity(bearerToken string) (string, error) {
 	// This is required by the Reddit API terms and conditions
 	req.Header.Add("User-Agent", userAgent)
 
-	resp, err := api.client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("Errored when retrieving identity from Reddit: %v", err)
 		return "", err
@@ -264,7 +281,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	// This is required by the Reddit API terms and conditions
 	req.Header.Add("User-Agent", userAgent)
 
-	resp, err := api.client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("Errored when sending request to the server: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -431,7 +448,7 @@ func (api *CoreHandler) requestToken(code string) (string, error) {
 	req.Header.Set("User-Agent", userAgent)
 	req.SetBasicAuth(api.conf.RedditClientID, api.conf.RedditSecret)
 
-	resp, err := api.client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("Unable to complate request for bearer token: %v\n", err)
 		return "", err
