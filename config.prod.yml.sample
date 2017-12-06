@@ -1,0 +1,6 @@
+frontend-url: "https://ec2-52-15-230-24.us-east-2.compute.amazonaws.com:443"
+core-url: "https://core:3000"
+redirect-uri: "https://ec2-52-15-230-24.us-east-2.compute.amazonaws.com:3001/v1/authorize_callback"
+reddit-secret: "PUT SECRET HERE"
+reddit-client-id: "2fRgcQCHkIAqkw"
+reddit-oauth-url: "http://oauth.reddit.com"
