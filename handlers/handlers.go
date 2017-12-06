@@ -21,7 +21,7 @@ import (
 
 const (
 	port                = ":3001"
-	baseURL             = "http://reddit-client" + port
+	baseURL             = "https://reddit-client" + port
 	redditBaseURL       = "https://www.reddit.com"
 	accessTokenEndpoint = "/api/v1/access_token"
 	authorizeEndpoint   = "/api/v1/authorize"
@@ -109,7 +109,7 @@ func New(conf *config.Config) (*CoreHandler, error) {
 		return nil, errors.New("must initialize handler with non-nil config")
 	}
 
-	caCert, err := ioutil.ReadFile("/etc/ssl/certs/core.crt")
+	caCert, err := ioutil.ReadFile("/usr/local/etc/ssl/certs/core.crt")
 	if err != nil {
 		log.Fatal(err)
 	}
