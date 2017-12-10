@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	FrontendURL    string `yaml:"frontend-url"`
-	CoreURL        string `yaml:"core-url"`
-	RedirectURI    string `yaml:"redirect-uri"`
-	RedditSecret   string `yaml:"reddit-secret"`
-	RedditClientID string `yaml:"reddit-client-id"`
-	RedditOAuthURL string `yaml:"reddit-oauth-url"`
+	FrontendURL     string `yaml:"frontend-url"`
+	CoreURL         string `yaml:"core-url"`
+	RedditClientURL string `yaml:"reddit-client-url"`
+	RedirectURI     string `yaml:"redirect-uri"`
+	RedditSecret    string `yaml:"reddit-secret"`
+	RedditClientID  string `yaml:"reddit-client-id"`
+	RedditOAuthURL  string `yaml:"reddit-oauth-url"`
 }
 
 // TODO: Add validation to avoid empty values

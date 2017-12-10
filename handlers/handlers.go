@@ -20,8 +20,6 @@ import (
 )
 
 const (
-	port                = ":3001"
-	baseURL             = "https://reddit-client" + port
 	redditBaseURL       = "https://www.reddit.com"
 	accessTokenEndpoint = "/api/v1/access_token"
 	authorizeEndpoint   = "/api/v1/authorize"
@@ -343,9 +341,9 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		// TODO: This is needed because we use this same code for both authenitcated
 		// and non authenticated requests. It is gross and should be fixed soon
 		if id == "" {
-			nextURL = fmt.Sprintf("%v/v1/posts?continue=%v", baseURL, vals.Data.After)
+			nextURL = fmt.Sprintf("%v/v1/posts?continue=%v", api.conf.RedditClientURL, vals.Data.After)
 		} else {
-			nextURL = fmt.Sprintf("%v/v1/%v/posts?continue=%v", baseURL, id, vals.Data.After)
+			nextURL = fmt.Sprintf("%v/v1/%v/posts?continue=%v", api.conf.RedditClientURL, id, vals.Data.After)
 		}
 	}
 	clientResp := models.ClientResp{

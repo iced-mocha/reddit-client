@@ -1,5 +1,6 @@
 frontend-url: "https://localhost:443"
-core-url: "https://localhost:3000"
+core-url: "https://core:3000"
+reddit-client-url: "https://reddit-client:3001"
 redirect-uri: "https://localhost:3001/v1/authorize_callback"
 reddit-secret: "PUT REDDIT SECERET HERE"
 reddit-client-id: "2fRgcQCHkIAqkw"
