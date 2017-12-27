@@ -27,7 +27,7 @@ const (
 	settingsEndpoint    = "/settings"
 	userAgent           = "web:icedmocha:v0.0.1 (by /u/icedmoch)"
 
-	// This words give us access to specific things in Reddit API - see docs for more info
+	// These words give us access to specific things in Reddit API - see docs for more info
 	redditAPIScope   = "history identity mysubreddits read"
 	targetImageWidth = 600
 )
@@ -264,7 +264,7 @@ func (api *CoreHandler) getPostsAuth(query, token string) (*http.Request, error)
 func (api *CoreHandler) getPosts(query string) (*http.Request, error) {
 	url := "http://www.reddit.com/.json"
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequest(http.MethodGet, url+query, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -314,6 +314,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	if arr, ok := queryParams["continue"]; ok && len(arr) > 0 {
 		pageToken = arr[0]
 	}
+	log.Printf("Received page token: %v", pageToken)
 
 	id := mux.Vars(r)["id"]
 	redditAuth, err := api.getRedditAuth(r)
@@ -359,6 +360,7 @@ func (api *CoreHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	log.Printf("Reddit response: %+v", vals.Data.After)
 
 	posts := []models.Post{}
 	for _, c := range vals.Data.Children {
